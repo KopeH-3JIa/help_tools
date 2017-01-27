@@ -1,0 +1,50 @@
+#!/bin/sh 
+
+
+if adb -d shell 'whoami' | grep root > /dev/null
+then
+	echo "You in root mode"
+else
+	if ! adb -d root
+	then
+		echo "Can't enter root mode"
+		exit 1
+	fi
+	adb -d wait-for-device
+	echo "Enabled root mode"
+fi
+
+if [ ! -e "$1" ] ; then
+	echo "Usage: $0 in_apk.apk app_name_in_system_folder"
+	exit 1
+fi
+
+OUTNAME=$(basename $1 .apk) 
+
+if [ ! -z "$2" ] ; then
+	OUTNAME=$(basename $2 .apk)
+fi
+
+adb -d shell "reboot recovery"
+
+
+count=30
+for i in $(seq 1 $count)
+do
+	adb devices | grep recovery >> /dev/null
+	if [ $? -eq 0 ] 
+	then
+		printf  "Device found [%s/%s]\n" $i $count
+		adb -d shell 'mount /system'
+		adb -d shell "rm -r /system/priv-app/${OUTNAME} > /dev/null"
+		adb -d shell "mkdir -p /system/priv-app/${OUTNAME}"
+		adb -d push $1 /system/priv-app/${OUTNAME}/${OUTNAME}.apk
+		adb -d reboot
+	 	exit 0;
+	fi
+	printf  "Waiting for device in recovery [%s/%s]\r" $i $count
+	sleep 1s
+done
+
+	
+
